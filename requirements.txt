@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy
+scipy
+openai
+google-genai
+python-dotenv
+requests
