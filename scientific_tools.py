@@ -15,7 +15,10 @@ from bio_databases import BioDatabases
 from database import ResearchDB
 from dataset_discovery import DatasetDiscovery
 from http_client import HttpClient
-from retrieval.source_manager import SourceManager
+try:
+    from retrieval.source_manager import SourceManager
+except (ModuleNotFoundError, ImportError):
+    from source_manager import SourceManager
 
 
 class ScientificToolbox:
