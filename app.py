@@ -2,6 +2,17 @@
 app.py - High-Performance User-Side Dashboard
 Features: BYOK (Bring Your Own Key), 100% Free Tier, Anonymous Creator Analytics.
 """
+import os
+import sys
+import types
+
+# Virtual retrieval bridge: tells Python to find retrieval files right here in the main folder
+_root = os.path.dirname(os.path.abspath(__file__))
+if "retrieval" not in sys.modules:
+    _pkg = types.ModuleType("retrieval")
+    _pkg.__path__ = [_root]
+    _pkg.__file__ = os.path.join(_root, "__init__.py")
+    sys.modules["retrieval"] = _pkg
 
 import os
 import streamlit as st
