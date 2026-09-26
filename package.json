@@ -1,0 +1,13 @@
+{
+  "name": "biosynthetica",
+  "version": "2.0.0",
+  "private": true,
+  "description": "BioSynthetica — Autonomous Biology Research Engine (React + FastAPI)",
+  "scripts": {
+    "setup": "sh ./scripts/setup.sh",
+    "dev": "sh ./scripts/dev.sh",
+    "build": "cd frontend && bun run build",
+    "start": "sh ./scripts/dev.sh",
+    "package": "sh ./scripts/package_desktop.sh"
+  }
+}

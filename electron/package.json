@@ -1,0 +1,25 @@
+{
+  "name": "biosynthetica-desktop",
+  "version": "2.0.0",
+  "description": "BioSynthetica — Autonomous Biology Research Engine (desktop)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --mac --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "org.biosynthetica.desktop",
+    "productName": "BioSynthetica",
+    "files": ["main.js"],
+    "extraResources": [
+      { "from": "../dist-desktop/resources", "to": "resources" }
+    ],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg", "category": "public.app-category.developer-tools" },
+    "linux": { "target": "AppImage" }
+  }
+}

@@ -624,6 +624,91 @@ class ResearchDB:
     # HYPOTHESES & EXPERIMENT DESIGNS
     # ------------------------------------------------------
 
+    def clear_contradictions(self, research_question_id: Optional[int] = None) -> None:
+        """Delete stored contradiction records (used before re-running detection)."""
+        if research_question_id is None:
+            self._conn.execute("DELETE FROM contradictions")
+        else:
+            self._conn.execute(
+                "DELETE FROM contradictions WHERE research_question_id = ?", (research_question_id,)
+            )
+        self._conn.commit()
+
+    def save_claim_group(self, research_question_id: Optional[int], group_key: str, intervention: str,
+                         outcome: str, member_ids: List[int], summary: Dict[str, Any],
+                         explanations: List[Any]) -> int:
+        """Persist a grouped set of claims (same intervention/outcome) used for
+        cross-study contradiction analysis and GEO loop-closure targeting."""
+        cur = self._conn.execute(
+            "INSERT INTO claim_groups (research_question_id, group_key, intervention, outcome, "
+            "member_ids_json, summary_json, explanations_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                research_question_id,
+                group_key,
+                intervention,
+                outcome,
+                self._j(member_ids),
+                self._j(summary),
+                self._j(explanations),
+                now_iso(),
+            ),
+        )
+        self._conn.commit()
+        return int(cur.lastrowid)
+
+    def add_experiment_design(self, hypothesis_id: int, design: Dict[str, Any],
+                              power_notes: str = "", confounder_notes: str = "") -> int:
+        """Attach a proposed experimental design/specification to a hypothesis."""
+        cur = self._conn.execute(
+            "INSERT INTO experiment_designs (hypothesis_id, design_json, power_notes, "
+            "confounder_notes, created_at) VALUES (?, ?, ?, ?, ?)",
+            (hypothesis_id, self._j(design), power_notes, confounder_notes, now_iso()),
+        )
+        self._conn.commit()
+        return int(cur.lastrowid)
+
+    def log_provider_event(self, provider: str, event: str,
+                           latency_ms: Optional[float] = None, error_text: Optional[str] = None) -> None:
+        """Record a provider health event (success / 429 / cooldown / hard error)."""
+        self._conn.execute(
+            "INSERT INTO provider_health_log (provider, event, latency_ms, error_text, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (provider, event, latency_ms, error_text, now_iso()),
+        )
+        self._conn.commit()
+
+    def update_hypothesis_status(self, hypothesis_id: int, new_status: str) -> None:
+        """Update a hypothesis lifecycle status (proposed / supported / refuted ...)."""
+        self._conn.execute(
+            "UPDATE hypotheses SET status = ? WHERE id = ?", (new_status, hypothesis_id)
+        )
+        self._conn.commit()
+
+    def upsert_dataset(self, research_question_id: Optional[int], source: str, accession: str,
+                       title: str = "", description: str = "", organism: str = "",
+                       url: str = "", metadata: Optional[Dict[str, Any]] = None) -> int:
+        """Insert or update a discovered public dataset (GEO/SRA) record."""
+        existing = self._conn.execute(
+            "SELECT id FROM datasets WHERE source = ? AND accession = ?", (source, accession)
+        ).fetchone()
+        created = now_iso()
+        if existing:
+            self._conn.execute(
+                "UPDATE datasets SET research_question_id = ?, title = ?, description = ?, "
+                "organism = ?, url = ?, metadata_json = ? WHERE id = ?",
+                (research_question_id, title, description, organism, url, self._j(metadata or {}), existing[0]),
+            )
+            self._conn.commit()
+            return int(existing[0])
+        cur = self._conn.execute(
+            "INSERT INTO datasets (research_question_id, source, accession, title, description, "
+            "organism, url, metadata_json, discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (research_question_id, source, accession, title, description, organism, url,
+             self._j(metadata or {}), created),
+        )
+        self._conn.commit()
+        return int(cur.lastrowid)
+
     def add_hypothesis(self, research_question_id: Optional[int], hypothesis: Dict[str, Any]) -> int:
         ts = now_iso()
         hid = self._insert(

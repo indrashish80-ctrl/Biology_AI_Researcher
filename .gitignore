@@ -1,9 +1,37 @@
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Packaging artifacts
+dist/
+build/
+dist-desktop/
+*.spec
+electron/node_modules/
+electron/dist/
+
+# Runtime artifacts
+api_report_*.md
+research_dossier_*.json
+RESEARCH_REPORT.md
+multi_paper_result.json
+http_cache/
+
+# Secrets & local data
 .env
+.env.local
+.llm_keys.json
 *.db
 cache/
 papers/raw/
 .shadow_sandbox/
-__pycache__/
-*.pyc
 *.tmp
 *.bak

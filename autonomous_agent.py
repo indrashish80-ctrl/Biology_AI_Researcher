@@ -113,12 +113,14 @@ class AutonomousResearchAgent:
         router: AIRouter,
         max_steps: int = 8,
         research_question_id: Optional[int] = None,
+        output_report: str = "RESEARCH_REPORT.md",
     ):
         self.db = db
         self.router = router
         self.tools = ScientificToolbox(db=self.db)
         self.claim_extractor = ClaimExtractor(self.db, self.router)
         self.reporter = ResearchReportGenerator(db=self.db)
+        self.output_report = output_report
         self.budget = ResearchBudget(max_steps=max_steps)
         self.rq_id = research_question_id or 1
         self.queue = ActivePaperQueue(research_question_id=self.rq_id)
@@ -298,7 +300,7 @@ Return strictly valid JSON:
 
         # 5. Compile Dossier
         try:
-            self.reporter.generate(self.rq_id, output_path="RESEARCH_REPORT.md")
+            self.reporter.generate(self.rq_id, output_path=self.output_report)
         except Exception:
             pass
 

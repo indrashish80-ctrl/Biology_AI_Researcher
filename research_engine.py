@@ -486,7 +486,12 @@ Return ONLY valid JSON matching this schema:
     # Autonomous ReAct Agent Entrypoint
     # -------------------------------------------------------------------------
 
-    def run_agent(self, question: str, max_steps: int = 20) -> Dict[str, Any]:
+    def run_agent(
+        self,
+        question: str,
+        max_steps: int = 20,
+        output_report: str = "RESEARCH_REPORT.md",
+    ) -> Dict[str, Any]:
         """Run an autonomous, dynamic tool-calling ReAct agent scoped to the question's queue."""
         if not self.router:
             raise RuntimeError("Autonomous agent requires an active AI router.")
@@ -496,6 +501,7 @@ Return ONLY valid JSON matching this schema:
             router=self.router,
             max_steps=max_steps,
             research_question_id=rq_id,
+            output_report=output_report,
         )
         return agent.run(question)
 
@@ -514,6 +520,8 @@ Return ONLY valid JSON matching this schema:
         enable_geo: bool = True,
         output_report: str = "RESEARCH_REPORT.md",
     ) -> Dict[str, Any]:
+        """Run the full pipeline. ``output_report`` is where the markdown
+        report is written (pass an absolute path when running from a server)."""
         print("=" * 80)
         print("BIOLOGY AI RESEARCH ENGINE - CLOSED-LOOP INVESTIGATION")
         print(f"Question: {question}")

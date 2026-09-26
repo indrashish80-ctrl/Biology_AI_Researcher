@@ -1,0 +1,5 @@
+# FastAPI backend for BioSynthetica (in addition to the root requirements.txt)
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+pydantic>=2.7
