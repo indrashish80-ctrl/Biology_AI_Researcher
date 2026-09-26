@@ -1,17 +1,23 @@
 """
-app.py - All-In-One Scientific Research Workstation
-BioSynthetix | Autonomous Literature Synthesis & Adversarial Audit Engine
+app.py
+------
+ChatGPT-Style Autonomous Biology Research Web Platform.
+Runs multi-source scientific retrieval, claim verification, 
+hypothesis formulation, and adversarial review without code exposure.
 """
 
+from __future__ import annotations
+
+import io
+import json
 import os
 import sys
+import tempfile
 import types
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-# -----------------------------------------------------------------------------
-# 1. Virtual Retrieval Bridge (Guarantees loose retrieval files load properly)
-# -----------------------------------------------------------------------------
+# Virtual retrieval bridge: ensures loose files on GitHub import without errors
 _root = os.path.dirname(os.path.abspath(__file__))
 if "retrieval" not in sys.modules:
     _pkg = types.ModuleType("retrieval")
@@ -20,475 +26,351 @@ if "retrieval" not in sys.modules:
     sys.modules["retrieval"] = _pkg
 
 import streamlit as st
-from ai_router import AIRouter
-from database import ResearchDB
-from research_engine import ResearchEngine
 
-# -----------------------------------------------------------------------------
-# 2. Page Configuration & Embedded Dark Scientific Workstation Styling
-# -----------------------------------------------------------------------------
+# Configure page layout and branding
 st.set_page_config(
-    page_title="Biology AI Research Workstation",
+    page_title="BioSynthetica AI — Biology Research Assistant",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
-
-    .stApp {
-        background-color: #0B0F14;
-        color: #E6EDF3;
-        font-family: 'Inter', -apple-system, sans-serif;
+# -----------------------------------------------------------------------------
+# Custom Styling: ChatGPT Clean Aesthetic with Modern Typography
+# -----------------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+    /* Global container styling */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 5rem;
+        max-width: 900px;
     }
     
-    code, pre, .stat-mono {
-        font-family: 'JetBrains Mono', monospace !important;
-    }
-
-    /* Top Workstation Header Bar */
-    .workstation-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid #24303A;
-        padding: 10px 0 16px 0;
-        margin-bottom: 24px;
-    }
-    .workstation-title {
-        font-size: 1.25rem;
+    /* Header styling */
+    .main-title {
+        font-size: 2.1rem;
         font-weight: 700;
         letter-spacing: -0.02em;
-        color: #E6EDF3;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        margin-bottom: 0.2rem;
     }
-    .system-status {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.75rem;
-        color: #36D399;
-        background: rgba(54, 211, 153, 0.1);
-        border: 1px solid rgba(54, 211, 153, 0.3);
-        padding: 4px 10px;
-        border-radius: 4px;
+    .sub-title {
+        font-size: 0.95rem;
+        color: #888888;
+        margin-bottom: 1.5rem;
     }
 
-    /* Scientific Card Containers */
-    .sc-card {
-        background-color: #111820;
-        border: 1px solid #24303A;
-        border-radius: 6px;
-        padding: 16px 18px;
-        margin-bottom: 14px;
-    }
-    .sc-card-highlight {
-        background-color: #111820;
-        border: 1px solid #24303A;
-        border-left: 4px solid #36D399;
-        border-radius: 6px;
-        padding: 16px 18px;
-        margin-bottom: 14px;
-    }
-    .sc-card-alert {
-        background-color: #161214;
-        border: 1px solid rgba(255, 107, 107, 0.3);
-        border-left: 4px solid #FF6B6B;
-        border-radius: 6px;
-        padding: 16px 18px;
-        margin-bottom: 14px;
+    /* Message styling */
+    .stChatMessage {
+        border-radius: 12px;
+        padding: 0.6rem 1rem;
     }
 
-    /* Stat Metric Cells */
-    .stat-cell {
-        background-color: #0E131A;
-        border: 1px solid #24303A;
-        border-radius: 4px;
-        padding: 10px 14px;
-        text-align: center;
-    }
-    .stat-val {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #E6EDF3;
-    }
-    .stat-lbl {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #8B98A5;
-        margin-top: 2px;
+    /* Reasoning card styling (ChatGPT o1 / DeepSeek R1 style) */
+    div[data-testid="stExpander"] {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.02);
+        margin-bottom: 0.8rem;
     }
 
-    /* Pill Badges */
+    /* Badges & Metrics */
     .badge {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.7rem;
-        font-weight: 500;
-        padding: 2px 8px;
-        border-radius: 3px;
         display: inline-block;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+        margin-right: 6px;
     }
-    .badge-green { background: rgba(54, 211, 153, 0.15); color: #36D399; border: 1px solid rgba(54, 211, 153, 0.3); }
-    .badge-yellow { background: rgba(242, 201, 76, 0.15); color: #F2C94C; border: 1px solid rgba(242, 201, 76, 0.3); }
-    .badge-red { background: rgba(255, 107, 107, 0.15); color: #FF6B6B; border: 1px solid rgba(255, 107, 107, 0.3); }
-    .badge-blue { background: rgba(56, 189, 248, 0.15); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-claim { background: #1e3a8a; color: #93c5fd; }
+    .badge-hypo { background: #064e3b; color: #6ee7b7; }
+    .badge-flag { background: #7f1d1d; color: #fca5a5; }
 
-    /* Clean Sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: #0A0D12 !important;
-        border-right: 1px solid #24303A;
+    /* Button styling */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 500;
     }
-    
-    /* Input Boxes */
-    .stTextInput > div > div > input {
-        background: #111820 !important;
-        border: 1px solid #24303A !important;
-        border-radius: 4px !important;
-        color: #E6EDF3 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 3. Header & Shared Database
-# -----------------------------------------------------------------------------
-st.markdown("""
-<div class="workstation-header">
-    <div class="workstation-title">
-        <span>🧬</span> BIOLOGY AI RESEARCH ENGINE
-    </div>
-    <div class="system-status">● SYSTEM READY</div>
-</div>
-""", unsafe_allow_html=True)
-
-db = ResearchDB()
-
-# -----------------------------------------------------------------------------
-# 4. Sidebar: Navigation & BYOK Credentials
-# -----------------------------------------------------------------------------
-st.sidebar.markdown("### 🔬 WORKSTATION")
-active_screen = st.sidebar.radio(
-    "Navigation",
-    [
-        "Research Launchpad",
-        "Live Investigation Feed",
-        "Evidence & Claims",
-        "Retrieved Literature",
-        "Hypotheses & Falsification",
-        "Adversarial Audit & Dossier",
-    ],
-    index=0,
-    label_visibility="collapsed",
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### ⚡ AI ROUTER STATUS")
+# -----------------------------------------------------------------------------
+# Core Engine Imports
+# -----------------------------------------------------------------------------
+from database import ResearchDB
+from ai_router import AIRouter
+from research_engine import ResearchEngine
+from contradiction_detection import extract_conflicts_for_geo
 
-groq_key = st.session_state.get("groq_key", "")
-gemini_key = st.session_state.get("gemini_key", "")
-
-groq_active = bool(groq_key)
-gemini_active = bool(gemini_key)
-
-st.sidebar.markdown(f"""
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.8;">
-    <div>{'🟢' if groq_active else '⚪'} GROQ LPU <span style="color: #8B98A5;">(llama-3.1-8b)</span></div>
-    <div>{'🟢' if gemini_active else '⚪'} GEMINI <span style="color: #8B98A5;">(fallback)</span></div>
-</div>
-""", unsafe_allow_html=True)
-
-with st.sidebar.expander("🔑 Configure API Keys (BYOK)", expanded=not (groq_active or gemini_active)):
-    st.session_state["groq_key"] = st.text_input("Groq API Key", type="password", value=groq_key, help="console.groq.com/keys")
-    st.session_state["gemini_key"] = st.text_input("Gemini API Key", type="password", value=gemini_key, help="aistudio.google.com")
-    st.caption("Keys remain in memory and are never written to disk.")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🗄️ KNOWLEDGE STORE")
-
-try:
-    papers_count = db._conn.execute("SELECT COUNT(*) FROM papers").fetchone()[0]
-    claims_count = db._conn.execute("SELECT COUNT(*) FROM claims").fetchone()[0]
-    hyp_count = db._conn.execute("SELECT COUNT(*) FROM hypotheses").fetchone()[0]
-    flags_count = db._conn.execute("SELECT COUNT(*) FROM audit_flags").fetchone()[0]
-except Exception:
-    papers_count, claims_count, hyp_count, flags_count = 0, 0, 0, 0
-
-st.sidebar.markdown(f"""
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.8;">
-    <div>● <span style="color: #8B98A5;">Papers Ingested:</span> <strong>{papers_count}</strong></div>
-    <div>● <span style="color: #8B98A5;">Grounded Claims:</span> <strong>{claims_count}</strong></div>
-    <div>● <span style="color: #8B98A5;">Hypotheses:</span> <strong>{hyp_count}</strong></div>
-    <div>● <span style="color: #8B98A5;">Audit Flags:</span> <strong style="color: #FF6B6B;">{flags_count}</strong></div>
-</div>
-""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 5. Screen 1: Research Launchpad
+# Session State Initialization
 # -----------------------------------------------------------------------------
-if active_screen == "Research Launchpad":
-    st.markdown("### 🎯 Investigation Launchpad")
-    st.markdown("<p style='color: #8B98A5; margin-top: -6px;'>Define a scientific question to initialize proof pillars and dispatch autonomous agents.</p>", unsafe_allow_html=True)
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": (
+                "Hello! I am your **Autonomous Biology Research Assistant**.\n\n"
+                "I search primary literature across **PubMed, PMC, and Europe PMC**, "
+                "extract **quote-grounded empirical claims**, detect cross-study contradictions, and "
+                "subject all findings to an **Adversarial Critic**.\n\n"
+                "To get started, enter your **API key(s)** in the left sidebar and enter any biology research question."
+            ),
+        }
+    ]
 
-    col_s1, col_s2, col_s3 = st.columns(3)
-    prefill = ""
-    if col_s1.button("💊 Semaglutide & Lean Mass Loss", use_container_width=True):
-        prefill = "Does semaglutide cause disproportionate lean mass loss compared to diet-induced caloric restriction alone?"
-    if col_s2.button("🧬 Metformin in Breast Cancer", use_container_width=True):
-        prefill = "How does metformin affect breast cancer cell proliferation and apoptosis?"
-    if col_s3.button("🧠 Dementia Clinical Biomarkers", use_container_width=True):
-        prefill = "What are the primary symptoms and diagnostic biomarkers of early-stage dementia?"
+if "last_dossier" not in st.session_state:
+    st.session_state.last_dossier = None
 
-    question = st.text_input(
-        "Scientific Research Question:",
-        value=prefill if prefill else st.session_state.get("active_question", ""),
-        placeholder="Enter biological hypothesis, mechanism, or clinical comparison...",
+if "last_report_md" not in st.session_state:
+    st.session_state.last_report_md = None
+
+
+# -----------------------------------------------------------------------------
+# Sidebar: User Credentials & Execution Controls
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.markdown("### 🧬 **BioSynthetica Engine**")
+    st.caption("Controlled, Source-Restricted Biological Intelligence")
+    st.markdown("---")
+
+    st.subheader("🔑 AI Provider Credentials")
+    st.caption("Your keys are retained in your browser session memory only.")
+
+    user_groq = st.text_input(
+        "Groq API Key",
+        type="password",
+        value=os.getenv("GROQ_API_KEY", ""),
+        help="Fastest inference (Llama-3.1 8B)",
     )
-    st.session_state["active_question"] = question
+    user_gemini = st.text_input(
+        "Gemini API Key",
+        type="password",
+        value=os.getenv("GEMINI_API_KEY", ""),
+        help="Google Gemini Flash models",
+    )
+    user_nvidia = st.text_input(
+        "NVIDIA NIM Key",
+        type="password",
+        value=os.getenv("NVIDIA_NIM_API_KEY", ""),
+        help="NVIDIA hosted models",
+    )
 
-    col_btn, col_scope = st.columns([1.5, 4])
-    with col_btn:
-        start_investigation = st.button("🚀 Dispatch Agent", type="primary", use_container_width=True)
-    with col_scope:
-        max_papers = st.selectbox("Search Depth", [3, 5, 8], index=0, format_func=lambda x: f"Batch Ingest {x} Studies (PubMed/PMC)")
+    # Sync keys to environment for underlying clients
+    if user_groq:
+        os.environ["GROQ_API_KEY"] = user_groq.strip()
+    if user_gemini:
+        os.environ["GEMINI_API_KEY"] = user_gemini.strip()
+    if user_nvidia:
+        os.environ["NVIDIA_NIM_API_KEY"] = user_nvidia.strip()
 
-    if start_investigation:
-        groq_k = st.session_state.get("groq_key")
-        gemini_k = st.session_state.get("gemini_key")
-        
-        if not (groq_k or gemini_k):
-            st.error("Authentication Missing: Enter a free Groq or Gemini API key in the sidebar.")
-        elif not question.strip():
-            st.warning("Please enter a research question.")
-        else:
-            custom_router = AIRouter()
-            if groq_k:
-                from openai import OpenAI
-                custom_router.groq_key = groq_k
-                custom_router.groq = OpenAI(api_key=groq_k, base_url="https://api.groq.com/openai/v1")
-            if gemini_k:
-                from google import genai
-                custom_router.gemini_key = gemini_k
-                custom_router.gemini = genai.Client(api_key=gemini_k)
+    st.markdown("---")
+    st.subheader("⚙️ Investigation Parameters")
+    
+    investigation_mode = st.radio(
+        "Research Protocol",
+        ["Dynamic ReAct Agent (Interactive)", "Deep Research (Pipeline Synthesis)"],
+        index=0,
+    )
+    
+    max_papers = st.slider("Max Papers to Ingest", min_value=2, max_value=8, value=4)
+    enable_geo = st.checkbox("Empirical NCBI GEO Loop Closure", value=True)
 
-            with st.spinner("Dispatching agent... Querying PubMed/PMC, parsing JATS XML, and running stats..."):
+    st.markdown("---")
+    st.subheader("🧪 Experimental Dataset (Optional)")
+    st.caption("Upload experimental data to test replication and evaluate hypotheses.")
+    uploaded_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
+    
+    group_col = None
+    outcome_col = None
+    if uploaded_file is not None:
+        try:
+            import pandas as pd
+            if uploaded_file.name.endswith(".csv"):
+                df_preview = pd.read_csv(uploaded_file)
+            else:
+                df_preview = pd.read_excel(uploaded_file)
+            
+            st.success(f"Loaded: `{uploaded_file.name}` ({len(df_preview)} rows)")
+            cols = list(df_preview.columns)
+            group_col = st.selectbox("Treatment/Grouping Column", cols, index=0)
+            outcome_col = st.selectbox("Measured Outcome Column", cols, index=min(1, len(cols) - 1))
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+
+    st.markdown("---")
+    if st.button("🗑️ Clear Conversation", use_container_width=True):
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Conversation cleared. Ready for a new biological question."}
+        ]
+        st.session_state.last_dossier = None
+        st.session_state.last_report_md = None
+        st.rerun()
+
+
+# -----------------------------------------------------------------------------
+# Main Chat Display
+# -----------------------------------------------------------------------------
+st.markdown('<div class="main-title">🧬 Biological Research AI</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="sub-title">Grounded literature extraction, hypothesis formulation, and adversarial review.</div>',
+    unsafe_allow_html=True,
+)
+
+# Render past chat conversation
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+        # Display rich artifacts attached to assistant messages
+        if "artifacts" in message:
+            arts = message["artifacts"]
+            if arts.get("report"):
+                with st.expander("📄 View Full Markdown Research Report", expanded=False):
+                    st.markdown(arts["report"])
+                    st.download_button(
+                        label="⬇️ Download RESEARCH_REPORT.md",
+                        data=arts["report"],
+                        file_name="RESEARCH_REPORT.md",
+                        mime="text/markdown",
+                        key=f"dl_rep_{id(message)}",
+                    )
+            if arts.get("dossier"):
+                with st.expander("📊 View Machine-Readable Knowledge Dossier (JSON)", expanded=False):
+                    st.json(arts["dossier"])
+
+
+# -----------------------------------------------------------------------------
+# Chat Input & Research Execution
+# -----------------------------------------------------------------------------
+prompt = st.chat_input("E.g., How does metformin inhibit cell proliferation and induce apoptosis in breast cancer?")
+
+if prompt:
+    # 1. Verification of keys
+    if not (user_groq or user_gemini or user_nvidia):
+        st.warning("⚠️ Please provide at least one API key in the left sidebar to begin.")
+        st.stop()
+
+    # 2. Append User Message
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # 3. Assistant Reasoning & Synthesis Loop
+    with st.chat_message("assistant"):
+        thought_container = st.status("🔬 Initiating Biological Investigation...", expanded=True)
+        temp_data_path = None
+
+        try:
+            # Handle uploaded dataset file saving
+            if uploaded_file is not None:
+                suffix = Path(uploaded_file.name).suffix
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    uploaded_file.seek(0)
+                    tmp.write(uploaded_file.read())
+                    temp_data_path = tmp.name
+
+            # Initialize Engine with Custom Router
+            thought_container.write("⚡ Initializing AI Router and database session...")
+            router = AIRouter()
+            engine = ResearchEngine(router=router, use_ai=True)
+
+            if "ReAct Agent" in investigation_mode:
+                # Mode A: Autonomous Tool-Calling Agent
+                thought_container.write("🤖 Deploying Autonomous Research Agent (PubMed, Europe PMC, NCBI)...")
+                agent_res = engine.run_agent(prompt, max_steps=8)
+
+                thought_container.update(label="✅ Autonomous Agent Finished Investigation!", state="complete", expanded=False)
+                
+                # Fetch output report
+                report_path = Path("RESEARCH_REPORT.md")
+                report_md = report_path.read_text(encoding="utf-8") if report_path.exists() else "No report generated."
+                
+                fin = agent_res.get("final_synthesis", {})
+                answer_md = (
+                    f"### Investigation Complete\n\n"
+                    f"The autonomous agent evaluated literature across independent studies and completed an "
+                    f"**adversarial review** on the hypotheses.\n\n"
+                    f"**Executive Synthesis:**\n"
+                    f"{fin.get('executive_summary', 'Synthesis finalized.')}\n\n"
+                    f"**Key Molecular Mechanism:**\n"
+                    f"`{fin.get('key_mechanism', 'Mechanism reviewed.')}`\n\n"
+                    f"Review the full report and adversarial audit flags below."
+                )
+
+                st.markdown(answer_md)
+                with st.expander("📄 View Full Markdown Research Report", expanded=True):
+                    st.markdown(report_md)
+                    st.download_button(
+                        label="⬇️ Download RESEARCH_REPORT.md",
+                        data=report_md,
+                        file_name="RESEARCH_REPORT.md",
+                        mime="text/markdown",
+                    )
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer_md,
+                    "artifacts": {"report": report_md},
+                })
+
+            else:
+                # Mode B: Deep Research Pipeline
+                thought_container.write("📚 Harvesting literature & extracting quote-grounded claims...")
+                dossier = engine.investigate(
+                    question=prompt,
+                    experimental_dataset=temp_data_path,
+                    exp_group_col=group_col,
+                    exp_outcome_col=outcome_col,
+                    max_papers=max_papers,
+                    enable_geo=enable_geo,
+                    output_report="RESEARCH_REPORT.md",
+                )
+
+                thought_container.update(label="✅ Deep Research Pipeline Completed!", state="complete", expanded=False)
+
+                report_path = Path("RESEARCH_REPORT.md")
+                report_md = report_path.read_text(encoding="utf-8") if report_path.exists() else "No report generated."
+
+                answer_md = (
+                    f"### Deep Research Dossier Generated\n\n"
+                    f"- **Papers Evaluated:** {dossier.get('papers_analyzed', 0)}\n"
+                    f"- **Contradictions Analyzed:** {dossier.get('contradiction_summary', {}).get('conflicting_pairs', 0)} conflicting pairs\n"
+                    f"- **Falsifiable Hypotheses:** {len(dossier.get('hypotheses', []))}\n"
+                    f"- **Adversarial Audit Flags:** {len(dossier.get('audit_flags', []))}\n\n"
+                    f"Review the complete audit report and download the dossier below."
+                )
+
+                st.markdown(answer_md)
+                with st.expander("📄 View Full Markdown Research Report", expanded=True):
+                    st.markdown(report_md)
+                    st.download_button(
+                        label="⬇️ Download RESEARCH_REPORT.md",
+                        data=report_md,
+                        file_name="RESEARCH_REPORT.md",
+                        mime="text/markdown",
+                    )
+
+                with st.expander("📊 View Machine-Readable Knowledge Dossier (JSON)", expanded=False):
+                    st.json(dossier)
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer_md,
+                    "artifacts": {"report": report_md, "dossier": dossier},
+                })
+
+        except Exception as exc:
+            thought_container.update(label="❌ Error during investigation", state="error")
+            st.error(f"Investigation Error: {exc}")
+        finally:
+            if temp_data_path and os.path.exists(temp_data_path):
                 try:
-                    with ResearchEngine(router=custom_router) as engine:
-                        res = engine.run_agent(question, max_steps=8 if max_papers > 3 else 4)
-                    st.session_state["last_investigation"] = res
-                    st.session_state["last_rq_id"] = engine.db.create_research_question(question)
-                    st.success("Investigation complete! Switch to 'Evidence & Claims' or 'Adversarial Audit' in the sidebar.")
-                except Exception as e:
-                    st.error(f"Investigation halted: {e}")
-
-    st.markdown("<br><h4>📜 Previous Investigations in Store</h4>", unsafe_allow_html=True)
-    rqs = db._rows(db._conn.execute("SELECT * FROM research_questions ORDER BY id DESC LIMIT 5").fetchall())
-    if rqs:
-        for r in rqs:
-            summary = db.research_question_summary(r["id"])
-            st.markdown(f"""
-            <div class="sc-card" style="padding: 12px 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong>[ID #{r['id']}] {r['question']}</strong>
-                    <span class="badge badge-blue">{summary['claims']} claims • {summary['hypotheses']} hypotheses</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 6. Screen 2: Live Investigation Feed
-# -----------------------------------------------------------------------------
-elif active_screen == "Live Investigation Feed":
-    st.markdown("### 🛰️ Live Agent Investigation Telemetry")
-    res = st.session_state.get("last_investigation")
-    if not res:
-        st.info("No active investigation trace found in memory. Run a query from the Launchpad.")
-    else:
-        fin = res.get("final_synthesis", {})
-        st.markdown(f"""
-        <div class="sc-card-highlight">
-            <span class="badge badge-green">SYNTHESIZED CONCLUSION</span>
-            <h4 style="margin: 8px 0; color: #E6EDF3;">Executive Summary</h4>
-            <p style="color: #8B98A5; line-height: 1.6;">{fin.get('executive_summary', 'No summary generated.')}</p>
-            <h4 style="margin: 12px 0 6px 0; color: #E6EDF3;">Consensus Signaling Mechanism</h4>
-            <p class="stat-mono" style="color: #38BDF8; font-size: 0.85rem; line-height: 1.6;">{fin.get('key_mechanism', 'No mechanism extracted.')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        competing = fin.get("evaluated_competing_explanations", [])
-        if competing:
-            st.markdown("#### ⚖️ Counter-Mechanism Adjudication")
-            for c in competing:
-                st.markdown(f"""
-                <div class="sc-card">
-                    <span class="badge badge-yellow">EVALUATED RIVAL EXPLANATION</span>
-                    <p style="margin: 8px 0 0 0; color: #E6EDF3;">{c}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 7. Screen 3: Evidence & Claims Inspector (The Core Inspection Card)
-# -----------------------------------------------------------------------------
-elif active_screen == "Evidence & Claims":
-    st.markdown("### 🧬 Verbatim Grounded Claims Inspector")
-    st.markdown("<p style='color: #8B98A5; margin-top: -6px;'>Every claim below was extracted verbatim from literature and verified through n-gram token overlap.</p>", unsafe_allow_html=True)
-
-    rq_id = st.session_state.get("last_rq_id")
-    claims = db.claims_with_papers(rq_id) if rq_id else db.claims_with_papers()
-
-    if not claims:
-        st.info("No claims found in store. Run an investigation from the launchpad.")
-    else:
-        for c in claims[:25]:
-            g_score = c.get("grounding_score", 1.0)
-            p_val = c.get("p_value")
-            dir_str = str(c.get("effect_direction", "unclear")).upper()
-            dir_badge = "badge-blue" if dir_str == "INCREASE" else ("badge-red" if dir_str == "DECREASE" else "badge-yellow")
-
-            st.markdown(f"""
-            <div class="sc-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="stat-mono" style="font-size: 0.8rem; font-weight: 700; color: #8B98A5;">CLAIM #{c.get('id', 0):03d}</span>
-                    <div>
-                        <span class="badge {dir_badge}">{dir_str}</span>
-                        <span class="badge badge-green">GROUNDED {g_score * 100:.0f}%</span>
-                    </div>
-                </div>
-                
-                <h4 style="margin: 0 0 10px 0; color: #E6EDF3; font-weight: 600;">{c.get('statement')}</h4>
-                
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0;">
-                    <div class="stat-cell">
-                        <div class="stat-val" style="font-size: 0.9rem;">{c.get('intervention') or 'N/A'}</div>
-                        <div class="stat-lbl">Intervention</div>
-                    </div>
-                    <div class="stat-cell">
-                        <div class="stat-val" style="font-size: 0.9rem;">{c.get('measurement') or 'N/A'}</div>
-                        <div class="stat-lbl">Endpoint</div>
-                    </div>
-                    <div class="stat-cell">
-                        <div class="stat-val" style="font-size: 0.9rem;">{f'p = {p_val:.4g}' if p_val is not None else 'Unspecified'}</div>
-                        <div class="stat-lbl">Statistical P</div>
-                    </div>
-                    <div class="stat-cell">
-                        <div class="stat-val" style="font-size: 0.9rem;">n = {c.get('sample_size') or 'N/A'}</div>
-                        <div class="stat-lbl">Sample Size</div>
-                    </div>
-                </div>
-                
-                <div style="background: #0E131A; border: 1px solid #24303A; border-radius: 4px; padding: 12px; margin-top: 10px;">
-                    <div style="font-size: 0.7rem; text-transform: uppercase; color: #8B98A5; font-weight: 700; margin-bottom: 4px;">VERBATIM EVIDENCE QUOTE</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #A7F3D0; font-style: italic;">"{c.get('quote')}"</div>
-                    <div style="font-size: 0.75rem; color: #8B98A5; margin-top: 6px;">
-                        Source: {c.get('paper_title', 'Unknown')[:80]}... (PMID: {c.get('pmid') or 'N/A'})
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 8. Screen 4: Retrieved Literature
-# -----------------------------------------------------------------------------
-elif active_screen == "Retrieved Literature":
-    st.markdown("### 📚 Retrieved Peer-Reviewed Literature")
-    papers = db.list_papers()
-    if not papers:
-        st.info("No papers currently ingested.")
-    else:
-        st.caption(f"Catalog of {len(papers)} scientific articles ingested from Europe PMC and PubMed:")
-        for p in papers:
-            sections = db.get_sections(p["id"])
-            tables = db.get_tables(p["id"])
-            st.markdown(f"""
-            <div class="sc-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <h4 style="margin: 0 0 6px 0; color: #E6EDF3;">{p.get('title') or 'Untitled'}</h4>
-                        <p style="color: #8B98A5; font-size: 0.85rem; margin: 0 0 8px 0;">{p.get('journal', 'Journal')} ({p.get('year', 'N/A')}) • Authors: {p.get('authors', 'Unknown')[:60]}...</p>
-                    </div>
-                    <span class="badge badge-green">OPEN ACCESS</span>
-                </div>
-                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #38BDF8;">
-                    PMID: {p.get('pmid') or 'N/A'} | PMCID: {p.get('pmcid') or 'N/A'} | DOI: {p.get('doi') or 'N/A'}
-                </div>
-                <div style="font-size: 0.8rem; color: #8B98A5; margin-top: 8px;">
-                    Sections parsed: {len(sections)} | Data tables extracted: {len(tables)}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 9. Screen 5: Hypotheses & Falsification
-# -----------------------------------------------------------------------------
-elif active_screen == "Hypotheses & Falsification":
-    st.markdown("### 🧪 Popperian Falsifiable Hypotheses")
-    rq_id = st.session_state.get("last_rq_id")
-    hypotheses = db.list_hypotheses(rq_id) if rq_id else db.list_hypotheses()
-
-    if not hypotheses:
-        st.info("No hypotheses recorded yet.")
-    else:
-        for i, h in enumerate(hypotheses, 1):
-            falsif = h.get("falsification_conditions") or ["Not specified"]
-            st.markdown(f"""
-            <div class="sc-card-highlight">
-                <div style="display: flex; justify-content: space-between;">
-                    <span class="stat-mono" style="font-size: 0.8rem; color: #8B98A5;">HYPOTHESIS #{i:02d}</span>
-                    <span class="badge badge-green">{str(h.get('status', 'proposed')).upper()}</span>
-                </div>
-                <h3 style="color: #38BDF8; margin: 8px 0 6px 0;">{h.get('statement')}</h3>
-                <p style="color: #E6EDF3; font-size: 0.95rem;"><strong>Molecular Mechanism:</strong> {h.get('mechanism')}</p>
-                
-                <div style="background: #0E131A; border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 4px; padding: 12px; margin: 12px 0;">
-                    <div style="font-size: 0.7rem; text-transform: uppercase; color: #FF6B6B; font-weight: 700; margin-bottom: 4px;">FALSIFICATION CONDITION</div>
-                    <div style="color: #FCA5A5; font-size: 0.9rem;">{falsif[0]}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 10. Screen 6: Adversarial Audit & Dossier
-# -----------------------------------------------------------------------------
-elif active_screen == "Adversarial Audit & Dossier":
-    st.markdown("### ⚠️ Adversarial Audit & Quality Control")
-    rq_id = st.session_state.get("last_rq_id")
-    flags = db.list_audit_flags(rq_id) if rq_id else db.list_audit_flags()
-
-    if flags:
-        st.caption(f"Adversarial Flags Caught by Critic: {len(flags)}")
-        for f in flags:
-            sev = f.get("severity", "MEDIUM")
-            sev_badge = "badge-red" if sev == "HIGH" else "badge-yellow"
-            st.markdown(f"""
-            <div class="sc-card-alert">
-                <span class="badge {sev_badge}">{sev} RISK</span>
-                <h4 style="margin: 8px 0 4px 0; color: #FF6B6B;">{f.get('issue')}</h4>
-                <div style="font-size: 0.8rem; color: #8B98A5;">
-                    Entity: <code>{f.get('claim_text')}</code> | Source: <code>{f.get('evidence_reference')}</code>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div class="sc-card-highlight">
-            <span class="badge badge-green">ALL AUDITS PASSED</span>
-            <p style="margin: 8px 0 0 0; color: #E6EDF3;">No causal overreach or missing controls detected.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br><h4>📄 Export Complete Research Dossier</h4>", unsafe_allow_html=True)
-    report_path = Path("RESEARCH_REPORT.md")
-    if report_path.exists():
-        report_text = report_path.read_text(encoding="utf-8")
-        st.download_button(
-            "📥 Download Full Dossier (.md)",
-            data=report_text,
-            file_name="RESEARCH_REPORT.md",
-            mime="text/markdown",
-            use_container_width=True,
-        )
-        with st.expander("Preview Raw Markdown"):
-            st.text_area("Markdown Preview", value=report_text, height=350)
+                    os.unlink(temp_data_path)
+                except Exception:
+                    pass
