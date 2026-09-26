@@ -32,7 +32,7 @@ AXIS_MAPPINGS = {
     },
     "inhibition": {
         "inhibition", "suppression", "downregulation", "decrease", "attenuation", "blockade"
-    }
+    },
 }
 
 OPPOSING_AXES = {
@@ -43,7 +43,7 @@ OPPOSING_AXES = {
 STOP_WORDS = {
     "the", "of", "and", "in", "on", "to", "a", "an", "with", "by", "for", "effect",
     "effects", "treatment", "treated", "application", "applied", "concentration", "exposure",
-    "response", "responses", "during", "after", "via", "through", "associated", "cell", "cells"
+    "response", "responses", "during", "after", "via", "through", "associated", "cell", "cells",
 }
 
 
@@ -127,7 +127,6 @@ def compare_claims(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     if na and nb and max(na, nb) / max(1, min(na, nb)) >= 3:
         diffs.append({"factor": "sample_size_power", "a": na, "b": nb})
 
-    # Check for axis inversion
     axis_a = map_to_axis(a.get("outcome") or a.get("measurement"))
     axis_b = map_to_axis(b.get("outcome") or b.get("measurement"))
     if (axis_a, axis_b) in OPPOSING_AXES:
@@ -181,7 +180,14 @@ def detect_and_store(db: Any, research_question_id: Optional[int], router: Any =
         interv = members[0].get("intervention") or members[0].get("subject") or "Biological Factor"
         outc = members[0].get("measurement") or members[0].get("outcome") or "Endpoint"
         key = f"{interv}::{outc}"
-        summary = {"n_claims": len(members), "directions": dict(by_dir), "has_conflict": has_conflict}
+        
+        # Include member_ids so extract_conflicts_for_geo receives actual claim IDs
+        summary = {
+            "n_claims": len(members),
+            "directions": dict(by_dir),
+            "has_conflict": has_conflict,
+            "member_ids": [m["id"] for m in members],
+        }
 
         db.save_claim_group(research_question_id, key, interv, outc, [m["id"] for m in members], summary, [])
         out_groups.append({"key": key, "intervention": interv, "outcome": outc, "summary": summary, "pairs": pairs})
